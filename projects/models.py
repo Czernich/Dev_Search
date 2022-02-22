@@ -1,3 +1,4 @@
+from enum import unique
 from django.db import models
 import uuid
 from django.db.models.base import Model
@@ -22,7 +23,24 @@ class Project(models.Model):
         return self.title
 
     class Meta:
-        ordering = ['-created_at']
+        ordering = ['-vote_ratio', '-vote_total', '-created_at']
+
+    @property
+    def reviewers(self):
+        queryset = self.review_set.all().values_list('owner__id', flat=True)
+        return queryset
+
+
+    @property
+    def getVoteCount(self):
+        reviews = self.review_set.all()
+        upVotes = reviews.filter(value='up').count()
+        totalVotes = reviews.count()
+        ratio = (upVotes/totalVotes) * 100
+
+        self.vote_total = totalVotes
+        self.vote_ratio = ratio
+        self.save()
 
 
 class Review(models.Model):
@@ -31,14 +49,19 @@ class Review(models.Model):
         ('down', 'Down Vote')
     )
     id = models.UUIDField(default=uuid.uuid4, primary_key=True, unique=True, editable=False)
-    # owner = 
+    owner = models.ForeignKey(Profile,on_delete=models.CASCADE, null=True, blank=True) 
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
     body = models.TextField(max_length=2048, null=True, blank=True)
     value = models.CharField(max_length=256, choices=VOTE_TYPE)
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        unique_together = [['owner', 'project']]
+
     def __str__(self):
         return self.value
+
+    
 
 class Tag(models.Model):
     id = models.UUIDField(default=uuid.uuid4, primary_key=True, unique=True, editable=False)
