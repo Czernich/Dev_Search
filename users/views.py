@@ -1,10 +1,12 @@
+from multiprocessing import context
+from optparse import Values
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, authenticate, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from .models import Profile, Message
 from django.contrib.auth.models import User
-from .forms import CustomUserCreationForm, ProfileForm, SkillForm
+from .forms import CustomUserCreationForm, ProfileForm, SkillForm, MessageForm
 from .utils import *
 
 
@@ -164,3 +166,46 @@ def inbox(request):
         }
 
     return render(request, 'users/inbox.html', context=values)
+
+@login_required(login_url='login')
+def singleMessage(request, pk):
+    profile = request.user.profile
+    userMessage = profile.messages.get(id=pk)
+    values = {
+        'userMessage': userMessage
+    }
+    if userMessage.is_read == False:
+        userMessage.is_read = True
+        userMessage.save()
+    return render(request, 'users/message.html', context=values)
+
+
+def createMessage(request, pk):
+    recipient = Profile.objects.get(id=pk)
+    form = MessageForm()
+
+    try:
+        sender = request.user.profile
+    except:
+        sender = None
+
+    if request.method == "POST":
+        form = MessageForm(request.POST)
+        if form.is_valid():
+            message = form.save(commit=False)
+            message.sender = sender
+            message.recipient = recipient
+            if sender:
+                message.name = sender.name
+                message.email = sender.email
+            message.save()
+
+            messages.success(request, "Message has been sent to the user.")
+            return redirect("profile", pk=recipient.id)
+
+    values = {
+        'recipient': recipient,
+        'form': form
+    }
+
+    return render(request, 'users/message_form.html', context=values)
