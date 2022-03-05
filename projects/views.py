@@ -84,7 +84,8 @@ def updateProject(request, pk):
             return redirect('account')
 
     context = {
-        'form': form
+        'form': form,
+        'project': project
     }
     return render(request, 'projects/project_form.html', context)
 
